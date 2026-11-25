@@ -1,0 +1,57 @@
+<!doctype html><html lang="pt-br"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<title>Claude Board</title><meta name="robots" content="noindex"><link rel="icon" href="/favicon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Claude Board"><meta name="theme-color" content="#1B1B1B">
+<style>
+:root{--ink:#1B1B1B;--bg:#F4F2EC;--card:#fff;--line:#dcd6c8;--gold:#C9A24B;--gold-d:#7d622f;--red:#B23A2B;--mute:#6b675f;--user:#f3e7c8;--code:#efebe0;--ok:#2f7d4f}
+@media(prefers-color-scheme:dark){:root{--ink:#ECE6D8;--bg:#121212;--card:#1E1E1E;--line:#37332b;--gold-d:#d8b86c;--mute:#a39c8f;--user:#3a3120;--code:#0c0c0c;--red:#e0705f;--ok:#6cc08d}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+button,input,textarea{font:inherit;color:inherit}button{cursor:pointer;border:0;background:none;touch-action:manipulation}
+[hidden]{display:none!important}
+.view{position:fixed;inset:0;height:100dvh;display:flex;flex-direction:column}
+header{flex:none;background:#1B1B1B;color:#F4F2EC;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;display:flex;align-items:center;gap:8px;border-bottom:3px solid var(--gold)}
+header h1{flex:1;min-width:0;font-size:17px;margin:0;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header small{display:block;font-size:12px;font-weight:400;color:#cfc7b4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hb{min-width:44px;min-height:44px;border-radius:10px;font-size:15px;font-weight:700;color:#F4F2EC;padding:0 10px}.hb.g{background:var(--gold);color:#1B1B1B}.hb.r{background:#B23A2B;color:#fff}
+.warn{flex:none;display:block;background:#8f2f22;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 14px;text-align:center}
+.search{flex:none;padding:10px 12px}.search input,.login input{width:100%;min-height:46px;border:2px solid var(--line);border-radius:12px;background:var(--card);padding:0 14px;font-size:16px;outline:0}
+input:focus,textarea:focus{border-color:var(--gold)!important}
+#list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 12px calc(20px + env(safe-area-inset-bottom))}
+.it{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 13px;margin-bottom:8px}
+.it:active{border-color:var(--gold)}
+.it b{display:block;font-size:16px;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.it p{margin:4px 0 0;font-size:14px;color:var(--mute);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.it span{display:flex;gap:8px;margin-top:6px;font-size:12.5px;color:var(--mute)}.it span i{font-style:normal;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run{color:var(--ok);font-weight:700}
+.more{display:block;margin:8px auto;min-height:44px;padding:0 18px;border:2px solid var(--line);border-radius:12px;background:var(--card);font-weight:600}
+#msgs{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;overscroll-behavior:contain}
+.m{margin:0 0 12px;overflow-wrap:anywhere}
+.m.user{background:var(--user);border-radius:16px 16px 4px 16px;padding:9px 13px;margin-left:12%;white-space:pre-wrap}
+.m.pend{opacity:.6}.m.sys{font-size:13px;color:var(--mute);text-align:center}.m img{max-width:100%;border-radius:10px;display:block}
+.m.assistant p{margin:0 0 8px}.m.assistant p:last-child{margin:0}.m h3{font-size:17px;margin:12px 0 5px}.m ul,.m ol{margin:4px 0 8px;padding-left:22px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:10px;overflow-x:auto;font:13px/1.45 ui-monospace,Menlo,monospace;margin:6px 0;white-space:pre}
+code{font:13.5px ui-monospace,Menlo,monospace;background:var(--code);padding:1px 4px;border-radius:5px}pre code{padding:0;background:none;font-size:13px}
+.tw{overflow-x:auto;margin:6px 0}table{border-collapse:collapse;font-size:14px}td,th{border:1px solid var(--line);padding:5px 8px;text-align:left;overflow-wrap:normal}
+a{color:var(--gold-d)}
+details{margin:0 0 10px;border-left:3px solid var(--line);padding-left:10px;font-size:13.5px;color:var(--mute)}details.err{border-color:var(--red)}
+summary{min-height:32px;display:flex;align-items:center;gap:6px;list-style:none;overflow:hidden}summary::-webkit-details-marker{display:none}summary::before{content:"▸";flex:none}details[open] summary::before{content:"▾"}summary span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details pre{max-height:260px;overflow:auto;white-space:pre-wrap}
+#prog{flex:none;padding:7px 14px;font-size:13.5px;background:var(--card);border-top:1px solid var(--line);color:var(--ok);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#queue{flex:none;max-height:120px;overflow:auto;background:var(--card)}#queue div{display:flex;align-items:center;gap:8px;padding:2px 6px 2px 14px;font-size:13.5px;border-top:1px solid var(--line)}#queue span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#queue button{min-width:44px;min-height:40px;font-weight:700;color:var(--gold-d)}
+#atts{flex:none;display:flex;gap:6px;flex-wrap:wrap;padding:0 10px;background:var(--card)}#atts button{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comp{flex:none;display:flex;align-items:flex-end;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
+.comp textarea{flex:1;min-width:0;min-height:46px;max-height:34dvh;resize:none;border:2px solid var(--line);border-radius:14px;background:var(--bg);padding:10px 12px;font-size:16px;line-height:1.35;outline:0}
+.sq{flex:none;width:46px;height:46px;border-radius:14px;font-size:20px;font-weight:700;border:2px solid var(--line)}.sq.go{background:var(--gold);border-color:var(--gold);color:#1B1B1B}.sq:disabled{opacity:.45}
+.login{align-items:center;justify-content:center;padding:20px;background:#1B1B1B}.login form{width:100%;max-width:360px;background:var(--card);border-radius:18px;padding:22px}.login h1{margin:0 0 14px;font-size:22px}.login button,.big{width:100%;min-height:50px;border-radius:12px;background:var(--gold);color:#1B1B1B;font-weight:800;margin-top:12px}
+.err{color:var(--red)}#lerr{min-height:20px;margin:8px 0 0;font-size:14px}
+.nw{flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px}.nw label{font-size:14px;font-weight:600}.nw textarea,.nw select{width:100%;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);padding:11px 12px;font-size:16px;outline:0}.nw select{min-height:48px}.nw textarea{min-height:150px;resize:vertical}
+#toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1B1B1B;color:#fff;border:1px solid var(--gold);padding:10px 16px;border-radius:12px;font-size:14px;max-width:88vw;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}#toast.on{opacity:1}
+</style></head><body>
+<section class="view login" id="vLogin" hidden><form id="lf"><h1>Claude Board</h1><input id="pw" type="password" name="password" autocomplete="current-password" placeholder="Senha" aria-label="Senha" required><p id="lerr" class="err" role="alert"></p><button>Entrar</button></form></section>
+<section class="view" id="vList" hidden><header><h1>Conversas<small id="lsub"></small></h1><button class="hb g" id="bNew">+ Nova</button></header><a class="warn" id="w1" href="/conectar" hidden>Claude desconectado. Toque para conectar.</a><div class="search"><input id="q" type="search" placeholder="Buscar conversa" aria-label="Buscar conversa"></div><div id="list"></div></section>
+<section class="view" id="vChat" hidden><header><button class="hb" id="bBack" aria-label="Voltar">‹ Voltar</button><h1><span id="ct"></span><small id="cs"></small></h1><button class="hb r" id="bStop" hidden>Parar</button></header><a class="warn" id="w2" href="/conectar" hidden>Claude desconectado. Toque para conectar.</a>
+<div id="msgs"></div><div id="prog" hidden></div><div id="queue"></div><div id="atts"></div>
+<form class="comp" id="cf"><input id="file" type="file" multiple hidden><button type="button" class="sq" id="bAtt" aria-label="Anexar foto ou arquivo">+</button><textarea id="tx" rows="1" placeholder="Mensagem" aria-label="Mensagem"></textarea><button class="sq go" id="bSend" aria-label="Enviar">➤</button></form></section>
+<section class="view" id="vNew" hidden><header><button class="hb" id="bBack2">‹ Voltar</button><h1>Nova conversa</h1></header><form class="nw" id="nf"><label for="ndir">Pasta no servidor</label><select id="ndir"></select><label for="nmodel">Modelo</label><select id="nmodel"></select><label for="ntx">Primeira mensagem</label><textarea id="ntx" required></textarea><button class="big" id="nGo">Começar</button></form></section>
+<div id="toast" role="status"></div><script src="/assets/m.js"></script></body></html>

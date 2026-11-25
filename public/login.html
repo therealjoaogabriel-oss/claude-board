@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claude Board</title><link rel="icon" href="/favicon.svg">
+<script>try{var t=localStorage.getItem("cb.theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;900&display=swap">
+<style>
+:root{--ink:#1B1B1B;--shc:#1B1B1B;--paper:#F4F2EC;--card:#fff;--bg:#1B1B1B;--grid:rgba(201,162,75,.18);--gold:#C9A24B;--gold-d:#9A7D4D;--red:#C0392B;--mute:#6F6F6F;--pop:cubic-bezier(.34,1.56,.64,1)}
+:root[data-theme="dark"]{--ink:#ECE6D8;--shc:#9A7D4D;--paper:#121212;--card:#1E1E1E;--bg:#0A0A0A;--mute:#A39C8F}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;color:var(--ink);font:15px/1.4 "Archivo",system-ui,sans-serif;
+  background:var(--bg);background-image:linear-gradient(var(--grid) 2px,transparent 2px),linear-gradient(90deg,var(--grid) 2px,transparent 2px);background-size:56px 56px;overflow:hidden}
+@keyframes pop{0%{transform:scale(.8) rotate(-3deg);opacity:0}60%{transform:scale(1.05) rotate(1deg);opacity:1}100%{transform:none}}
+@keyframes float{0%,100%{transform:translateY(0) rotate(var(--r))}50%{transform:translateY(-10px) rotate(var(--r))}}
+@keyframes shake{20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+.star{position:fixed;width:70px;animation:float 5s ease-in-out infinite;pointer-events:none}
+.win{width:100%;max-width:380px;background:var(--card);color:var(--ink);border:3px solid var(--ink);border-radius:16px;box-shadow:9px 9px 0 var(--gold);overflow:hidden;animation:pop .5s var(--pop)}
+.bar{height:30px;background:#1B1B1B;color:var(--gold);border-bottom:3px solid var(--ink);display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-weight:900;letter-spacing:2px;font-size:12px}
+form{padding:26px 26px 24px}
+h1{margin:0 0 4px;font:900 32px/1 "Archivo",sans-serif;display:flex;gap:12px;align-items:center}
+h1 img{width:40px;height:40px;border:3px solid var(--ink);border-radius:11px;background:var(--gold);box-shadow:3px 3px 0 var(--shc)}
+h1:hover img{transform:rotate(-10deg) scale(1.1);transition:transform .3s var(--pop)}
+p{margin:0 0 22px;font-weight:600;color:var(--mute)}
+input{width:100%;padding:13px;border-radius:12px;border:3px solid var(--ink);background:var(--paper);color:var(--ink);font:inherit;font-size:16px;box-shadow:3px 3px 0 var(--shc);outline:none}
+input:focus{box-shadow:5px 5px 0 var(--gold)}
+button{width:100%;margin-top:16px;padding:13px;border:3px solid var(--ink);border-radius:12px;background:var(--gold);color:#1B1B1B;font:900 18px "Archivo",sans-serif;cursor:pointer;box-shadow:4px 4px 0 var(--shc);transition:transform .14s var(--pop),box-shadow .14s var(--pop)}
+button:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--shc)}
+button:active{transform:translate(4px,4px);box-shadow:0 0 0 var(--ink)}
+.err{color:#fff;background:var(--red);border:2.5px solid var(--ink);border-radius:10px;font-weight:700;padding:7px 10px;margin-top:12px;display:none}
+.err.on{display:block}.shake{animation:shake .4s}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<svg class="star" style="top:9%;left:10%;--r:12deg" viewBox="0 0 100 100"><path d="M50 4C56 38 62 44 96 50 62 56 56 62 50 96 44 62 38 56 4 50 38 44 44 38 50 4Z" fill="#C9A24B" stroke="#111" stroke-width="5" stroke-linejoin="round"/></svg>
+<svg class="star" style="bottom:12%;right:12%;width:54px;--r:-14deg;animation-delay:-2s" viewBox="0 0 100 100"><path d="M50 4C56 38 62 44 96 50 62 56 56 62 50 96 44 62 38 56 4 50 38 44 44 38 50 4Z" fill="#9A7D4D" stroke="#111" stroke-width="6" stroke-linejoin="round"/></svg>
+<svg class="star" style="top:18%;right:16%;width:38px;--r:5deg;animation-delay:-3.5s" viewBox="0 0 100 100"><path d="M50 4C56 38 62 44 96 50 62 56 56 62 50 96 44 62 38 56 4 50 38 44 44 38 50 4Z" fill="#EFE3C4" stroke="#111" stroke-width="7" stroke-linejoin="round"/></svg>
+<div class="win" id="win"><div class="bar"><span>● ● ●</span><span>_ □ ×</span></div>
+<form id="f"><h1><img src="/favicon.svg" alt="">Claude Board</h1>
+<p>Todas as conversas do Claude Code da VPS num quadro.</p>
+<input id="p" type="password" placeholder="Senha" autofocus autocomplete="current-password">
+<button>Entrar →</button><div class="err" id="e"></div></form></div>
+<script>
+f.onsubmit=async ev=>{ev.preventDefault();e.classList.remove('on');const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p.value})});
+if(r.ok)location.href='/';else{e.textContent=(await r.json().catch(()=>({}))).error||'Erro';e.classList.add('on');win.classList.remove('shake');void win.offsetWidth;win.classList.add('shake')}}
+</script></body></html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Claude Board</title><link rel="icon" href="/favicon.svg">
+<script>try{var t=localStorage.getItem("cb.theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="/assets/app.css">
+<link rel="stylesheet" href="/assets/neo.css">
+</head><body>
+<header id="top">
+  <button class="ico" id="btnSide" title="Conversas">☰</button>
+  <div class="brand"><img src="/favicon.svg" width="20" height="20" alt="">Claude Board</div>
+  <select id="boardSel" title="Quadro atual"></select>
+  <button class="ico" id="btnBoardMenu" title="Quadros">▾</button>
+  <div class="running" id="runningBar"></div>
+  <div class="grow"></div>
+  <span id="usageMini" title="Uso e limites"></span>
+  <button class="btn" id="btnUsage" title="Dashboard: uso, VPS, arquivos">📊 Dashboard</button>
+  <button class="btn" id="btnFrame" title="Criar área (coluna livre)">＋ Área</button>
+  <button class="btn" id="btnNote" title="Criar nota">＋ Nota</button>
+  <button class="btn primary" id="btnNew">＋ Nova conversa</button>
+  <button class="ico" id="btnTheme" title="Modo dia / noite">☾</button>
+</header>
+
+<aside id="side">
+  <div class="side-head">
+    <input id="q" placeholder="Buscar conversa…" autocomplete="off">
+    <select id="projFilter"><option value="">Todos os projetos</option></select>
+    <div class="side-actions"><button class="btn small" id="btnFolder" title="Nova pasta">＋ Pasta</button><label class="chk"><input type="checkbox" id="onlyOff"> Só fora do quadro</label></div>
+  </div>
+  <div id="list"></div>
+  <div class="side-foot">Arraste uma conversa pro quadro ou pra uma pasta · <a href="#" id="logout">sair</a><br><span class="credit">Claude Board · desenvolvido pela <a href="https://inveehub.com.br" target="_blank" rel="noopener">Invee Hub</a></span></div>
+</aside>
+
+<main id="stage">
+  <div id="world">
+    <div id="frames"></div>
+    <svg id="links"></svg>
+    <div id="cards"></div>
+  </div>
+  <div id="zoomCtl">
+    <button class="ico" data-z="out">−</button><span id="zoomPct">100%</span><button class="ico" data-z="in">＋</button>
+    <button class="ico" data-z="fit" title="Enquadrar tudo">⤢</button>
+    <button class="ico" data-z="arrange" title="Organizar cartões soltos">▦</button>
+  </div>
+  <div id="hint">Arraste o fundo pra mover · roda/pinça pra zoom · puxe a bolinha do cartão pra ligar conversas</div>
+</main>
+
+<section id="panel" class="hidden">
+  <div id="pResize" title="Arraste pra mudar a largura · duplo clique alterna normal/largo"></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="ph">
+    <div class="ph-title"><span class="dot" id="pDot"></span><input id="pTitle" spellcheck="false" title="Clique pra renomear"><button class="ico" id="pWide" title="Alternar painel largo">⤢</button><button class="ico" id="pClose" title="Fechar">✕</button></div>
+    <div class="ph-meta" id="pMeta"></div>
+    <div class="ph-ctl">
+      <select id="pModel" title="Modelo"></select>
+      <select id="pEffort" title="Esforço"><option value="default">esforço padrão</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="xhigh">xhigh</option><option value="max">max</option></select>
+      <select id="pPerm" title="Permissões"><option value="bypassPermissions">sem pedir permissão</option><option value="acceptEdits">aceitar edições</option><option value="plan">só planejar</option></select>
+      <button class="ico" id="pExport" title="Baixar a conversa em Markdown (.md)">📥</button><button class="ico" id="pCopy" title="Copiar comando pra abrir esta conversa no terminal (claude --resume)">📋</button>
+    </div>
+    <div class="progress" id="pProg"></div>
+  </div>
+  <div id="msgs"></div>
+  <form id="composer">
+    <div id="queueRow"></div>
+    <div id="attachRow"></div>
+    <div class="comp-input"><button type="button" class="ico" id="btnClip" title="Anexar imagem ou arquivo">📎</button><button type="button" class="ico mic" id="btnMic" title="Falar: clique pra gravar e de novo pra transcrever (também transcreve arquivo de áudio que você soltar aqui)">🎤</button><textarea id="input" rows="2" placeholder="Mensagem pro Claude…" title="Enter envia · Shift+Enter quebra linha · cole ou arraste arquivos · / abre comandos"></textarea></div>
+    <div class="comp-row"><span id="compInfo" class="hidden"></span><button type="button" class="btn danger hidden" id="pStop">■ Parar</button><button class="btn primary" id="pSend">Enviar</button></div>
+    <input type="file" id="fileInput" multiple hidden>
+  </form>
+</section>
+
+<dialog id="dlgNew">
+  <form method="dialog" id="newForm">
+    <h3>Nova conversa com o Claude Code</h3>
+    <label>Nome (opcional)<input id="nName" placeholder="ex: Campanha Black Friday"></label>
+    <label>Pasta de trabalho<input id="nCwd" list="cwdList" autocomplete="off"><datalist id="cwdList"></datalist></label>
+    <div class="row2">
+      <label>Modelo<select id="nModel"></select></label>
+      <label>Esforço<select id="nEffort"><option value="default">padrão</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="xhigh">xhigh</option><option value="max">max</option></select></label>
+      <label>Permissões<select id="nPerm"><option value="bypassPermissions">sem pedir</option><option value="acceptEdits">aceitar edições</option><option value="plan">só planejar</option></select></label>
+    </div>
+    <label>Colocar na área<select id="nFrame"><option value="">— solto no quadro —</option></select></label>
+    <label>Primeira mensagem<textarea id="nText" rows="5" placeholder="O que o Claude deve fazer? (pode colar ou arrastar imagens/arquivos)"></textarea></label>
+    <div id="nAttachRow"></div>
+    <button type="button" class="btn small" id="nClip">📎 Anexar arquivo</button> <button type="button" class="btn small mic" id="nMic">🎤 Falar</button><input type="file" id="nFileInput" multiple hidden>
+    <div class="err" id="nErr"></div>
+    <menu><button value="cancel" class="btn">Cancelar</button><button id="nGo" value="go" class="btn primary">Criar e começar</button></menu>
+  </form>
+</dialog>
+
+<dialog id="dlgUsage">
+  <div class="usage-head">
+    <div class="dash-tabs">
+      <button class="dtab on" data-tab="uso">📊 Uso Claude</button>
+      <button class="dtab" data-tab="vps">🖥️ VPS</button>
+      <button class="dtab" data-tab="files">📁 Arquivos</button>
+      <button class="dtab" data-tab="claude">⚙ Claude</button>
+    </div>
+    <button class="ico" id="uClose">✕</button>
+  </div>
+  <div id="usageBody" class="usage-body">Carregando…</div>
+  <div id="vpsBody" class="usage-body hidden">Carregando…</div>
+  <div id="filesBody" class="usage-body hidden">Carregando…</div>
+  <div id="claudeBody" class="usage-body hidden">Carregando…</div>
+</dialog>
+<div id="slashMenu" class="hidden"></div>
+<div id="imgview"><img alt=""></div>
+<div id="ctx" class="hidden"></div>
+<div id="toast"></div>
+<script src="/assets/app.js"></script>
+<script src="/assets/conectar-aviso.js" defer></script>
+</body></html>
