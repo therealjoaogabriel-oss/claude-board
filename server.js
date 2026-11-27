@@ -678,7 +678,7 @@ function buildUserMessage(text, attachments) {
   content.unshift({ type: 'text', text: t || '(veja os anexos)' });
   return { type: 'user', message: { role: 'user', content } };
 }
-function startRun({ id, isNew, cwd, text, model, effort, permission, name, attachments }) {
+function startRun({ id, isNew, cwd, text, model, effort, permission, name, attachments, fast }) {
   if (runs.has(id)) throw Object.assign(new Error('Essa conversa já está rodando'), { code: 409 });
   if (procAlive(id)) throw Object.assign(new Error('Essa conversa já está rodando no servidor (talvez em outra aba). Espere terminar.'), { code: 409 });
   if (!cwd || !fs.existsSync(cwd)) cwd = HOME;
@@ -690,6 +690,8 @@ function startRun({ id, isNew, cwd, text, model, effort, permission, name, attac
   args.push(isNew ? '--session-id' : '--resume', id);
   if (model && model !== 'default') args.push('--model', MODELS[model] || model);
   if (effort && effort !== 'default') args.push('--effort', effort);
+  // modo rápido pela própria assinatura (cobra como uso extra da conta; o motivo vem no result se não der)
+  if (fast) args.push('--fast-mode', 'on');
   args.push('--permission-mode', ['default', 'acceptEdits', 'plan', 'bypassPermissions'].includes(permission) ? permission : 'bypassPermissions');
   if (attachments.length) args.push('--add-dir', UPLOADS);
   if (isNew && name) args.push('--name', name.slice(0, 80));
@@ -773,7 +775,7 @@ function finishRun(id, run) {
   const err = run.result && run.result.is_error;
   const u = (run.result && run.result.usage) || {};
   const tokens = { in: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0), out: u.output_tokens || 0, cacheRead: u.cache_read_input_tokens || 0 };
-  const sum = { endedAt: Date.now(), startedAt: run.startedAt, ok: run.result ? !err : true, cost: run.result?.total_cost_usd, tokens, duration: run.result?.duration_ms, turns: run.result?.num_turns ?? run.turns, error: err ? (run.result.result || 'erro') : (run.launchFailed || null), model: run.model };
+  const sum = { endedAt: Date.now(), startedAt: run.startedAt, ok: run.result ? !err : true, cost: run.result?.total_cost_usd, tokens, duration: run.result?.duration_ms, turns: run.result?.num_turns ?? run.turns, error: err ? (run.result.result || 'erro') : (run.launchFailed || null), model: run.model, fast: run.result?.fast_mode_state || null, fastOff: run.result?.fast_mode_disabled_reason || null };
   if (run.result && !run.result.is_error && (run.result.num_turns === 0) && typeof run.result.result === 'string' && run.result.result.trim()) {
     sum.localOut = run.result.result.slice(0, 20000);
     sessionEmit(id, 'items', { items: [{ id: 'local-' + Date.now(), kind: 'local', ts: new Date().toISOString(), text: sum.localOut }] });
@@ -800,7 +802,7 @@ function needsCompact(id) {
 }
 function startAutoCompact(id, cwd, msg) {
   const ctx = (index.get(id) || {}).ctx; lastAutoCompact.set(id, Date.now());
-  startRun({ id, isNew: false, cwd, text: COMPACT_TEXT, model: msg.model, effort: msg.effort, permission: msg.permission });
+  startRun({ id, isNew: false, cwd, text: COMPACT_TEXT, model: msg.model, effort: msg.effort, permission: msg.permission, fast: msg.fast });
   const notice = { text: `Contexto em ${Math.round(ctx / 1000)}k: compactando antes de enviar, pra gastar menos token. Sua mensagem vai logo em seguida.` };
   sessionEmit(id, 'notice', notice); broadcast('notice', { id, ...notice });
 }
@@ -812,7 +814,7 @@ function dispatchQueue(id) {
   if (needsCompact(id) && !String(msg.text || '').trim().startsWith('/compact')) { q.unshift(msg); queues.set(id, q); emitQueue(id); try { startAutoCompact(id, cwd, msg); } catch (e) { } return; }
   if (!q.length) queues.delete(id);
   emitQueue(id);
-  try { startRun({ id, isNew: false, cwd, text: msg.text, model: msg.model, effort: msg.effort, permission: msg.permission, attachments: msg.attachments }); }
+  try { startRun({ id, isNew: false, cwd, text: msg.text, model: msg.model, effort: msg.effort, permission: msg.permission, attachments: msg.attachments, fast: msg.fast }); }
   catch (e) { /* ainda rodando por algum motivo: recoloca e tenta depois */ q.unshift(msg); queues.set(id, q); emitQueue(id); setTimeout(() => dispatchQueue(id), 2000); }
 }
 function emitQueue(id) {
@@ -1023,7 +1025,7 @@ const handler = async (req, res) => {
     if (p === '/api/new' && req.method === 'POST') {
       const b = await readBody(req); if ((!b.text || !b.text.trim()) && !(b.attachments || []).length) return send(res, 400, { error: 'Escreva a primeira mensagem' });
       const id = crypto.randomUUID();
-      try { startRun({ id, isNew: true, cwd: b.cwd, text: b.text, model: b.model, effort: b.effort, permission: b.permission, name: b.name, attachments: b.attachments }); }
+      try { startRun({ id, isNew: true, cwd: b.cwd, text: b.text, model: b.model, effort: b.effort, permission: b.permission, name: b.name, attachments: b.attachments, fast: !!b.fast }); }
       catch (e) { return send(res, e.code || 500, { error: e.message }); }
       if (b.name) { board.names[id] = b.name; saveBoard(); }
       // responde na hora; o índice aparece sozinho pelos eventos (nada de segurar a conexão)
@@ -1037,7 +1039,7 @@ const handler = async (req, res) => {
         const busy = runs.has(id) || procAlive(id);
         if (!meta && !busy && !sessionCwd.has(id)) return send(res, 404, { error: 'sessão não encontrada' });
         const b = await readBody(req); if ((!b.text || !b.text.trim()) && !(b.attachments || []).length) return send(res, 400, { error: 'mensagem vazia' });
-        const msg = { text: b.text, attachments: b.attachments, model: b.model, effort: b.effort, permission: b.permission, at: Date.now() };
+        const msg = { text: b.text, attachments: b.attachments, model: b.model, effort: b.effort, permission: b.permission, fast: !!b.fast, at: Date.now() };
         if (b.now) {
           // Enviar agora: interrompe o que está rodando e manda esta na frente
           const q = queues.get(id) || []; q.unshift(msg); queues.set(id, q); emitQueue(id);
@@ -1053,7 +1055,7 @@ const handler = async (req, res) => {
           try { startAutoCompact(id, (meta && meta.cwd) || sessionCwd.get(id), msg); } catch (e) { return send(res, e.code || 500, { error: e.message }); }
           return send(res, 200, { ok: true, compacting: true, ctx: (index.get(id) || {}).ctx });
         }
-        try { startRun({ id, isNew: false, cwd: (meta && meta.cwd) || sessionCwd.get(id), text: b.text, model: b.model, effort: b.effort, permission: b.permission, attachments: b.attachments }); }
+        try { startRun({ id, isNew: false, cwd: (meta && meta.cwd) || sessionCwd.get(id), text: b.text, model: b.model, effort: b.effort, permission: b.permission, attachments: b.attachments, fast: !!b.fast }); }
         catch (e) { const q = queues.get(id) || []; q.push(msg); queues.set(id, q); emitQueue(id); return send(res, 200, { ok: true, queued: true, position: q.length }); }
         return send(res, 200, { ok: true });
       }

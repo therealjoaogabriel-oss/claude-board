@@ -57,7 +57,7 @@
       <select id="pModel" title="Modelo"></select>
       <select id="pEffort" title="Esforço"><option value="default">esforço padrão</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="xhigh">xhigh</option><option value="max">max</option></select>
       <select id="pPerm" title="Permissões"><option value="bypassPermissions">sem pedir permissão</option><option value="acceptEdits">aceitar edições</option><option value="plan">só planejar</option></select>
-      <button class="ico" id="pExport" title="Baixar a conversa em Markdown (.md)">📥</button><button class="ico" id="pCopy" title="Copiar comando pra abrir esta conversa no terminal (claude --resume)">📋</button>
+      <button class="ico fastbtn" id="pFast" title="Modo rápido: o mesmo modelo respondendo bem mais rápido, pela sua assinatura (conta como uso extra)">⚡</button><button class="ico" id="pExport" title="Baixar a conversa em Markdown (.md)">📥</button><button class="ico" id="pCopy" title="Copiar comando pra abrir esta conversa no terminal (claude --resume)">📋</button>
     </div>
     <div class="progress" id="pProg"></div>
   </div>
@@ -80,6 +80,7 @@
       <label>Modelo<select id="nModel"></select></label>
       <label>Esforço<select id="nEffort"><option value="default">padrão</option><option value="low">low</option><option value="medium">medium</option><option value="high">high</option><option value="xhigh">xhigh</option><option value="max">max</option></select></label>
       <label>Permissões<select id="nPerm"><option value="bypassPermissions">sem pedir</option><option value="acceptEdits">aceitar edições</option><option value="plan">só planejar</option></select></label>
+      <label>Modo rápido<select id="nFast"><option value="">desligado</option><option value="1">⚡ ligado</option></select></label>
     </div>
     <label>Colocar na área<select id="nFrame"><option value="">— solto no quadro —</option></select></label>
     <label>Primeira mensagem<textarea id="nText" rows="5" placeholder="O que o Claude deve fazer? (pode colar ou arrastar imagens/arquivos)"></textarea></label>

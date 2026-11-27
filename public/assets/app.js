@@ -588,10 +588,10 @@ $('#nGo').onclick = async e => {
   if (attState.new.some(a => !a.done)) { btn.disabled = false; return $('#nErr').textContent = 'Espere o anexo subir'; }
   try {
     const atts = attState.new.filter(a => a.done).map(a => ({ path: a.path, name: a.name }));
-    const body = { name: $('#nName').value.trim(), cwd: $('#nCwd').value.trim() || S.home, model: $('#nModel').value, effort: $('#nEffort').value, permission: $('#nPerm').value, text: $('#nText').value, attachments: atts };
+    const body = { name: $('#nName').value.trim(), cwd: $('#nCwd').value.trim() || S.home, model: $('#nModel').value, effort: $('#nEffort').value, permission: $('#nPerm').value, fast: $('#nFast').value === '1', text: $('#nText').value, attachments: atts };
     localStorage.setItem('cb.lastCwd', body.cwd); localStorage.setItem('cb.lastModel', body.model); localStorage.setItem('cb.lastEffort', body.effort);
     const { id } = await api('/api/new', { method: 'POST', body });
-    S.data.prefs[id] = { model: body.model, effort: body.effort, perm: body.permission };
+    S.data.prefs[id] = { model: body.model, effort: body.effort, perm: body.permission, fast: body.fast };
     if (body.name) S.data.names[id] = body.name;
     await load();
     const f = S.board.frames.find(x => x.id === $('#nFrame').value);
@@ -628,7 +628,7 @@ async function openSession(id) {
   $('#pMeta').innerHTML = `<span id="sessUse"></span>`; $('#pTitle').title = `Pasta: ${(s.cwd || '').replace(S.home, '~') || '~'}\nID: ${id}${s.entrypoint ? '\nCriada via: ' + s.entrypoint.replace('claude-', '') : ''}\n(clique pra renomear)`;
   renderCtx(id);
   const pr = S.data.prefs[id] || {};
-  $('#pModel').value = pr.model || 'opus'; $('#pEffort').value = pr.effort || 'medium'; $('#pPerm').value = pr.perm || 'bypassPermissions'; // padrão explícito: nunca cair no default global (Opus 4.8 1M + xhigh)
+  $('#pModel').value = pr.model || 'opus'; $('#pEffort').value = pr.effort || 'medium'; $('#pPerm').value = pr.perm || 'bypassPermissions'; setFastBtn(!!pr.fast); // padrão explícito: nunca cair no default global (Opus 4.8 1M + xhigh)
   S.items = []; S.cursor = null; S.typing = ''; S.thinking = ''; S.queue = []; renderQueue(); attState.main = []; renderAttachs('main'); $('#msgs').innerHTML = '<div class="msg system">Carregando…</div>';
   renderProgress();
   if (S.es) S.es.close();
@@ -749,10 +749,15 @@ function renderProgress() {
   $('#pSend').textContent = run ? 'Enfileirar' : 'Enviar'; $('#pSend').disabled = false;
   if (run) P.innerHTML = `<span>● ${st.label}${st.st.tool ? ': <code>' + esc(st.st.tool.slice(0, 90)) + '</code>' : ''}</span><span class="bar"><i></i></span>${st.st.tokens && (st.st.tokens.in || st.st.tokens.out) ? '<span>' + tokLabel(st.st.tokens) + '</span>' : ''}<span data-since="${st.st.startedAt}">${dur(Date.now() - st.st.startedAt)}</span>`;
   else if (st.cls === 'live') P.innerHTML = '<span style="color:var(--live)">● Essa conversa está ativa agora na extensão do VS Code. Dá pra acompanhar aqui; mandar mensagem junto pode embaralhar.</span>';
-  else if (st.st.endedAt) P.innerHTML = st.st.error ? `<span style="color:var(--err)">✕ ${esc(st.st.error.slice(0, 180))}</span>` : (st.st.external ? `<span style="color:var(--ok)">✓ terminou — sua vez. Veja a última resposta acima e responda se quiser.</span>` : `<span style="color:var(--ok)">✓ terminou em ${dur(st.st.endedAt - st.st.startedAt)}${st.st.tokens && (st.st.tokens.in || st.st.tokens.out) ? ' · ' + tokLabel(st.st.tokens) : ''}${st.st.turns ? ' · ' + st.st.turns + ' passos' : ''}</span>`);
+  else if (st.st.endedAt) P.innerHTML = st.st.error ? `<span style="color:var(--err)">✕ ${esc(st.st.error.slice(0, 180))}</span>` : (st.st.external ? `<span style="color:var(--ok)">✓ terminou — sua vez. Veja a última resposta acima e responda se quiser.</span>` : `<span style="color:var(--ok)">✓ terminou em ${dur(st.st.endedAt - st.st.startedAt)}${st.st.tokens && (st.st.tokens.in || st.st.tokens.out) ? ' · ' + tokLabel(st.st.tokens) : ''}${st.st.turns ? ' · ' + st.st.turns + ' passos' : ''}${st.st.fast === 'on' ? ' · ⚡ rápido' : ''}</span>${fastNote(st.st)}`);
   else P.innerHTML = `<span>Última atividade: ${ago(S.byId[id].mtime)}${S.byId[id].model ? ' · ' + esc(shortModel(S.byId[id].model)) : ''}</span>`;
 }
-['#pModel', '#pEffort', '#pPerm'].forEach(s => $(s).onchange = () => { const id = S.cur; S.data.prefs[id] = { model: $('#pModel').value, effort: $('#pEffort').value, perm: $('#pPerm').value }; saveBoard(); renderProgress(); updateCard(id); });
+// ⚡ modo rápido: liga por conversa; roda com --fast-mode on na assinatura (cobra como uso extra)
+function setFastBtn(on) { const b = $('#pFast'); if (!b) return; b.classList.toggle('on', on); b.title = on ? 'Modo rápido LIGADO nesta conversa (clique pra desligar). Conta como uso extra da assinatura.' : 'Modo rápido: o mesmo modelo respondendo bem mais rápido, pela sua assinatura (conta como uso extra)'; }
+const FAST_WHY = { extra_usage_disabled: 'o modo rápido precisa do "uso extra" ligado na sua conta: claude.ai → Configurações → Uso', model_not_allowed: 'o modo rápido não vale pra esse modelo; troque pro Opus', preference: 'o modo rápido está desligado pela sua organização' };
+function fastNote(st) { if (!st || !st.fastOff || !(S.data.prefs[S.cur] || {}).fast) return ''; return `<div style="color:var(--warn);margin-top:4px">⚡ não rodou no modo rápido: ${esc(FAST_WHY[st.fastOff] || st.fastOff)}</div>`; }
+$('#pFast').onclick = () => { const id = S.cur; if (!id) return; const pr = S.data.prefs[id] || (S.data.prefs[id] = { model: $('#pModel').value, effort: $('#pEffort').value, perm: $('#pPerm').value }); pr.fast = !pr.fast; setFastBtn(pr.fast); saveBoard(); renderProgress(); toast(pr.fast ? '⚡ Modo rápido ligado nesta conversa (vale a partir da próxima mensagem)' : 'Modo rápido desligado'); };
+['#pModel', '#pEffort', '#pPerm'].forEach(s => $(s).onchange = () => { const id = S.cur; S.data.prefs[id] = { model: $('#pModel').value, effort: $('#pEffort').value, perm: $('#pPerm').value, fast: !!S.data.prefs[id]?.fast }; saveBoard(); renderProgress(); updateCard(id); });
 $('#pTitle').onchange = () => rename(S.cur, $('#pTitle').value);
 $('#pCopy').onclick = () => copyResume(S.cur);
 $('#pStop').onclick = async () => { await api(`/api/session/${S.cur}/stop`, { method: 'POST' }); toast('Parando…'); };
@@ -869,7 +874,7 @@ async function sendMsg(now) {
   if (!text && !atts.length) return;
   if (attState.main.some(a => !a.done)) return toast('Espere o anexo subir');
   try {
-    const r = await api(`/api/session/${id}/send`, { method: 'POST', body: { text, now: !!now, model: $('#pModel').value, effort: $('#pEffort').value, permission: $('#pPerm').value, attachments: atts.map(a => ({ path: a.path, name: a.name })) } });
+    const r = await api(`/api/session/${id}/send`, { method: 'POST', body: { text, now: !!now, model: $('#pModel').value, effort: $('#pEffort').value, permission: $('#pPerm').value, fast: !!(S.data.prefs[id] || {}).fast, attachments: atts.map(a => ({ path: a.path, name: a.name })) } });
     input.value = ''; input.style.height = 'auto'; attState.main = []; renderAttachs('main');
     if (r.compacting) toast(`Contexto em ${ktok(r.ctx)}: compactando antes, pra gastar menos token. Sua mensagem vai logo em seguida.`, 6000);
     else if (r.queued) toast('Na fila · ' + r.position);
@@ -1101,7 +1106,7 @@ function renderCtx(id) {
     (lv ? ` <button class="btn small ctxbtn" id="btnCompact" title="Resume o histórico mantendo o que importa. Reduz o custo de cada passo.">🗜 Compactar</button>` : '');
   const b = $('#btnCompact'); if (b) b.onclick = async () => {
     if (!confirm(`Compactar esta conversa? O histórico de ${ktok(n)} tokens vira um resumo e cada passo fica bem mais barato. O Claude continua lembrando do que importa.`)) return;
-    try { const r = await api(`/api/session/${id}/send`, { method: 'POST', body: { text: '/compact', model: $('#pModel').value, effort: $('#pEffort').value, permission: $('#pPerm').value } });
+    try { const r = await api(`/api/session/${id}/send`, { method: 'POST', body: { text: '/compact', model: $('#pModel').value, effort: $('#pEffort').value, permission: $('#pPerm').value, fast: !!(S.data.prefs[id] || {}).fast } });
       toast(r.queued ? 'Compactação na fila: roda quando a atual terminar' : 'Compactando…'); } catch (e) { toast(e.message, 4000); }
   };
 }
